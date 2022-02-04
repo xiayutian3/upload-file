@@ -1,0 +1,30 @@
+{
+  "name": "upload-file",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "server": "node ./server/app.js",
+    "start": "vite"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiayutian3/upload-file.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/xiayutian3/upload-file/issues"
+  },
+  "homepage": "https://github.com/xiayutian3/upload-file#readme",
+  "dependencies": {
+    "axios": "^0.25.0",
+    "body-parser": "^1.19.1",
+    "express": "^4.17.2",
+    "multiparty": "^4.2.3",
+    "qs": "^6.10.3",
+    "spark-md5": "^3.0.2",
+    "vite": "^2.7.13"
+  }
+}
