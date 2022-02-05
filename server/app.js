@@ -1,18 +1,19 @@
 const express = require('express');
 const fs = require('fs');
 const bodyParser = require('body-parser');
-const multipartry = require('multiparty');
-const SparkMD5 = require('spark-md5');
+const multipartry = require('multiparty'); //Multiparty是用来解析FormData数据的一款插件，也可以生成唯一名字
+const SparkMD5 = require('spark-md5'); //用来生成唯一文件名
 const path = require('path');
 const app = express();
 const PORT = 8888;
 const HOST = 'http://127.0.0.1';
 const HOSTNAME = `${HOST}:${PORT}`;
-const FONTHOSTNAME = `${HOST}:${8000}`; // 前端起的服务
+const FONTHOSTNAME = `${HOST}:${8888}`; // 前端起的服务
 
-app.listen(PORT, () => {
-    console.log(`serve is runnig at ${HOSTNAME}`);
-});
+//是指静态资源目录
+// app.use(express.static(__dirname + '/upload'));
+app.use('/upload',express.static(__dirname +'/upload'));
+
 
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -21,6 +22,7 @@ app.use((req, res, next) => {
         : next();
 });
 
+//post请求限定大小 
 app.use(
     bodyParser.urlencoded({
         extended: false,
@@ -40,12 +42,17 @@ const delay = function (interval) {
 
 // 基于multiparty插件实现文件上传处理 & form-data解析
 const uploadDir = `${__dirname}/upload`;
-const baseDir = path.resolve(__dirname, '../');
+// const baseDir = path.resolve(__dirname, '../');
+const baseDir = path.resolve(__dirname, './');
+
+//是否自动处理 auto
 const multipartry_load = function (req, auto) {
     typeof auto !== 'boolean' ? (auto = false) : null;
+    //处理图片的大小上线
     let config = {
         maxFieldsSize: 200 * 1024 * 1024,
     };
+    //如果是自动上传
     if (auto) config.uploadDir = uploadDir;
     return new Promise(async (resolve, reject) => {
         await delay(); //
@@ -278,3 +285,13 @@ app.post('/upload_already', async (req, res) => {
         })
     }
 })
+
+//测试
+app.use((req,res) => {
+  res.send('hello world') 
+})
+
+
+app.listen(PORT, () => {
+  console.log(`serve is runnig at ${HOSTNAME}`);
+});
