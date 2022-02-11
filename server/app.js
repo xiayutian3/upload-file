@@ -2,7 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const multipartry = require('multiparty'); //Multiparty是用来解析FormData数据的一款插件，也可以生成唯一名字
-const SparkMD5 = require('spark-md5'); //用来生成唯一文件名
+const SparkMD5 = require('spark-md5'); //根据文件内容 用来生成唯一文件名
 const path = require('path');
 const app = express();
 const PORT = 8888;
@@ -155,15 +155,16 @@ app.post('/upload_single', async (req, res) => {
     }
 });
 
+//单文件上传处理base64
 app.post('/upload_single_base64', async (req, res) => {
     let file = req.body.file;
     let filename = req.body.filename;
     let spark = new SparkMD5.ArrayBuffer(); // 根据文件内容,生成一个hash名字
-    let suffix = /\.([0-9a-zA-Z]+)$/.exec(filename)[1];
+    let suffix = /\.([0-9a-zA-Z]+)$/.exec(filename)[1];  //后缀名
     let isExists = false;
     let path;
     file = decodeURIComponent(file);
-    file = file.replace(/^data:image\/\w+;base64,/, '');
+    file = file.replace(/^data:image\/\w+;base64,/, '');  //获取真正的文件内容
     file = Buffer.from(file, 'base64'); // 将base64转成正常的文件格式
     spark.append(file);
     path = `${uploadDir}/${spark.end()}.${suffix}`;

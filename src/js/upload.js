@@ -111,6 +111,7 @@
   let upload_input = upload.querySelector('.upload_ipt');
   let upload_button_select = upload.querySelector('.upload_button.select');
 
+  //转化成base64编码
   const changeBase64 = (file) => {
     return new Promise((resolve) => {
       let fileReader = new FileReader();
