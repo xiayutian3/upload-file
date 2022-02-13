@@ -45,7 +45,7 @@ const uploadDir = `${__dirname}/upload`;
 // const baseDir = path.resolve(__dirname, '../');
 const baseDir = path.resolve(__dirname, './');
 
-//是否自动处理 auto
+//multipartry解析formdata数据，是否自动处理上传 auto
 const multipartry_load = function (req, auto) {
     typeof auto !== 'boolean' ? (auto = false) : null;
     //处理图片的大小上线
@@ -82,10 +82,41 @@ const exists = function (path) {
 
 // 创建文件并写入到指定的目录 & 返回客户端结果
 const writeFile = function (res, path, file, filename, stream) {
+  // console.log('path: ', path);
+  // console.log('file: ', file);
     return new Promise((resolve, reject) => {
         if (stream) {
-        }
+          //创建可读流，可写流，生成文件
+          try{
+            let readStream = fs.createReadStream(file.path);
+            let writeStream = fs.createWriteStream(path);
+            readStream.pipe(writeStream);
+            readStream.on('end',()=>{
+              resolve({
+                code: 0,
+                codeText: '上传成功',
+              });
+              //同步地删除文件或符号链接
+              // fs.unlinkSync(file.path);
+              res.send({
+                code: 0,
+                codeText: '上传成功',
+              });
+            });
+            }catch(err){
+              resolve({
+                code: 1,
+                codeText: err,
+              })
+              res.send({
+                code: 1,
+                codeText: err,
+            });
+            }
+            return
+          }
         fs.writeFile(path, file, (err) => {
+          console.log('写入文件')
             if (err) {
                 reject(err);
                 res.send({
@@ -94,16 +125,18 @@ const writeFile = function (res, path, file, filename, stream) {
                 });
                 return;
             }
+           
             resolve();
             res.send({
-                code: 0,
-                codeText: '上传成功',
-                filename: filename,
-                url: path.replace(baseDir, FONTHOSTNAME),
-            });
+              code: 0,
+              codeText: '上传成功',
+              filename: filename,
+              url: path.replace(baseDir, FONTHOSTNAME),
+          });
         });
-    });
+    }).catch(()=>{});
 };
+
 
 // 大文件上传 & 合并切片
 const merge = (HASH, count) => {
@@ -166,6 +199,7 @@ app.post('/upload_single_base64', async (req, res) => {
     file = decodeURIComponent(file);
     file = file.replace(/^data:image\/\w+;base64,/, '');  //获取真正的文件内容
     file = Buffer.from(file, 'base64'); // 将base64转成正常的文件格式
+    // console.log('file:123 ', file);
     spark.append(file);
     path = `${uploadDir}/${spark.end()}.${suffix}`;
     await delay();
@@ -184,12 +218,14 @@ app.post('/upload_single_base64', async (req, res) => {
     writeFile(res, path, file, filename, false);
 });
 
+//处理缩略图接口
 app.post('/upload_single_name', async (req, res) => {
     try {
-        const { fields, files } = await multipartry_load(req);
-        const file = (files.file && files.file[0]) || {};
-        const filename = (fields.filename && fields.filename[0]) || '';
-        const path = `${uploadDir}/${filename}`;
+        let { fields, files } = await multipartry_load(req);
+        let file = (files.file && files.file[0]) || {};
+        // console.log('file:321 ', file);
+        let filename = (fields.filename && fields.filename[0]) || '';
+        let path = `${uploadDir}/${filename}`;
         let isExists = false;
         isExists = await exists(path);
         if (isExists) {
@@ -200,7 +236,9 @@ app.post('/upload_single_name', async (req, res) => {
             });
             return;
         }
-        writeFile(res, path, file, filename, true);
+        //写入文件
+
+        await writeFile(res, path, file, filename, true);
     } catch (e) {
         res.send({
             code: 1,
