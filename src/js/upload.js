@@ -180,7 +180,7 @@
 })();
 
 /**
- * 缩略图方式
+ * 缩略图方式，根据内容生成hash名字
  */
  (function () {
   let upload = document.querySelector('#upload3');
@@ -584,3 +584,185 @@
       uploadFile(file);
   });
 })();
+
+/**
+ * 大文件，切片上传
+ */
+ (function () {
+  const upload = document.querySelector('#upload7');
+  const upload_ipt = upload.querySelector('.upload_ipt');
+  const upload_button_select = upload.querySelector('.upload_button.select');
+  const upload_button_upload = upload.querySelector('.upload_button.upload');
+  const upload_progress = upload.querySelector('.upload_progress');
+  const progress = upload.querySelector('.progress');
+  let _file = null;
+
+  /**
+   *
+   * @param {} file
+   * @returns
+   * 根据内容生成hash名字
+   */
+  const changeBuffer = (file) => {
+      return new Promise((resolve) => {
+          let fileReader = new FileReader();
+          fileReader.readAsArrayBuffer(file);
+          fileReader.onload = (e) => {
+              let buffer = e.target.result;
+              const spark = new SparkMD5.ArrayBuffer();
+              spark.append(buffer);
+              const HASH = spark.end();
+              const suffix = /\.([0-9a-zA-Z]+)$/.exec(file.name)[1];
+              resolve({
+                  buffer,
+                  HASH,
+                  suffix,
+                  filename: `${HASH}.${suffix}`,
+              });
+          };
+      });
+  };
+
+  /**
+   *  选取图片
+   */
+  upload_button_select.addEventListener('click', function () {
+      upload_ipt.click();
+  });
+
+  /**
+   * 监听文件变化
+   */
+  upload_ipt.addEventListener('change', function (e) {
+      const { files } = e.target;
+      const file = files[0];
+      _file = file;
+      upload_progress.style.display = "block"
+  });
+
+  upload_button_upload.addEventListener('click', async function () {
+      // 点击开始上传
+      //文件切片方法：固定数量或者固定大小
+      // 先按固定大小来切，数量超过最大数量后，在按照最大固定数量来切
+      let chunkList = [];
+      let alreadyChunkList = [];
+      // console.log(_file);
+      let maxSize = 1024 * 1024;
+      let maxCount = Math.ceil(_file.size / maxSize); // 最大允许分割的切片数量为10
+      let index = 0;
+      if (!_file) return alert('请先选择图片');
+      //获取hash名，文件后缀
+      const { HASH, suffix } = await changeBuffer(_file);
+      // 判断当前文件可以切出多少切片
+      if (maxCount > 10) {
+          // 如果切片数量大于最大值
+          maxSize = _file.size / 10; // 则改变切片大小
+          maxCount = 10;
+      }
+      // console.log(maxCount, 'maxCount');
+      // console.log(maxSize, 'maxSize');
+      while (index < maxCount) {
+          chunkList.push({
+              file: _file.slice(index * maxSize, (index + 1) * maxSize),
+              filename: `${HASH}_${index + 1}.${suffix}`,
+          });
+          index++;
+      }
+
+      // 先获取已经上传的切片
+      const data = await instance.post(
+          '/upload_already',
+          {
+              HASH: HASH,
+          },
+          {
+              headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+              },
+          }
+      );
+      index = 0
+      // 进度条管控，当所有的切片上传成功后，合并切片
+      const complate = async () => {
+          index++;
+          let progressLength = `(${index}/${maxCount})%` // 进度条
+          progress.style.width = progressLength
+
+          if (index >= maxCount) {
+              console.log('ok, 所有切片上传完成')
+              progress.style.width = '100%'
+          }
+      }
+      //重置操作
+      const clear = () => {
+        upload_progress.style.display ="none"
+        progress.style.width = '0%'
+      }
+
+      const { fileList } = data;
+      alreadyChunkList = fileList
+      console.log(chunkList, 'chunkList');
+      chunkList = chunkList.map((item) => {
+          if (alreadyChunkList.length > 0 && alreadyChunkList.includes(item.filename)) {
+              // debugger
+              // 表示切片已经存在
+              complate()
+              return;
+          }
+
+          const fm = new FormData();
+          fm.append('file', item.file);
+          fm.append('filename', item.filename);
+          return new Promise((sovle, reject) => {
+              instance
+                  .post('/upload_chunk', fm)
+                  .then((data) => {
+                    if(data.code ==0){
+                      complate()
+                      sovle();
+                      return;
+                    }
+                    //失败的情况
+                    reject(data.codeText)
+                  })
+                  .catch((err) => {
+                      //重置清空
+                      alert('当前切片上传失败，请重试~')
+                      clear()
+
+                       //失败的情况
+                      reject(err)
+                  });
+          });
+      });
+
+      //所有切片上传成功后，告诉服务器合并切片
+      Promise.all(chunkList).then(() => {
+          instance
+              .post(
+                  '/upload_merge',
+                  {
+                      HASH: HASH,
+                      count: maxCount,
+                  },
+                  {
+                      headers: {
+                          'Content-Type': 'application/x-www-form-urlencoded',
+                      },
+                  }
+              )
+              .then((res) => {
+                if(res.code ==0){
+                  alert(`切片合并成功！地址：${res.url}`);
+                  // 重置清空
+                  clear()
+                }
+              }).catch(()=>{
+                alert('切片合并失败~~~~！');
+                // 重置清空
+                clear()
+              });
+      });
+  });
+})();
+

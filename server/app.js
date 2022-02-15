@@ -159,6 +159,7 @@ const merge = (HASH, count) => {
             return reg.exec(a)[1] - reg.exec(b)[1];
         }).forEach(item => {
             !suffix ? suffix = /\.([0-9a-zA-Z]+)$/.exec(item)[1] : null // 处理文件后缀
+            //合成文件
             fs.appendFileSync(`${uploadDir}/${HASH}.${suffix}`, fs.readFileSync(`${path}/${item}`));
             fs.unlinkSync(`${path}/${item}`);
         })
